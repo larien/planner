@@ -103,35 +103,82 @@ func (c *CLI) CreateWeek(boardID string) {
 
 func (c *CLI) CreateWeekend(name, boardID string) {
 	listID := c.CreateList(name, boardID)
-	c.CreateCard(listID, "Exercício físico ~ 30min")
-	c.CreateCard(listID, "Café da manhã ~ 30min")
-	c.CreateCard(listID, "Almoço ~ 60min")
-	c.CreateCard(listID, "Café da tarde ~ 30min")
-	c.CreateCard(listID, "Janta ~ 60min")
+	cardID := c.CreateCard(listID, "Exercício físico ~ 30min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Café da manhã ~ 30min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Almoço ~ 60min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Café da tarde ~ 30min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Janta ~ 60min")
+	c.AddLabel(cardID, c.Config.Saude)
 }
 
 func (c *CLI) CreateWorkday(name, boardID string) {
 	listID := c.CreateList(name, boardID)
-	c.CreateCard(listID, "Exercício físico ~ 30min")
-	c.CreateCard(listID, "Café da manhã ~ 30min")
-	c.CreateCard(listID, "Almoço ~ 60min")
-	c.CreateCard(listID, "Café da tarde ~ 30min")
-	c.CreateCard(listID, "Janta ~ 60min")
-	c.CreateCard(listID, "Foco 1 ~ 60min")
-	c.CreateCard(listID, "Foco 2 ~ 60min")
-	c.CreateCard(listID, "Foco 3 ~ 60min")
-	c.CreateCard(listID, "Foco 4 ~ 60min")
-	c.CreateCard(listID, "Foco 5 ~ 60min")
-	c.CreateCard(listID, "Foco 6 ~ 60min")
+	cardID := c.CreateCard(listID, "Exercício físico ~ 30min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Café da manhã ~ 30min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Almoço ~ 60min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Café da tarde ~ 30min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Janta ~ 60min")
+	c.AddLabel(cardID, c.Config.Saude)
+	cardID = c.CreateCard(listID, "Foco 1 ~ 60min")
+	c.AddLabel(cardID, c.Config.Trabalho)
+	cardID = c.CreateCard(listID, "Foco 2 ~ 60min")
+	c.AddLabel(cardID, c.Config.Trabalho)
+	cardID = c.CreateCard(listID, "Foco 3 ~ 60min")
+	c.AddLabel(cardID, c.Config.Trabalho)
+	cardID = c.CreateCard(listID, "Foco 4 ~ 60min")
+	c.AddLabel(cardID, c.Config.Trabalho)
+	cardID = c.CreateCard(listID, "Foco 5 ~ 60min")
+	c.AddLabel(cardID, c.Config.Trabalho)
+	cardID = c.CreateCard(listID, "Foco 6 ~ 60min")
+	c.AddLabel(cardID, c.Config.Trabalho)
 }
 
-func (c *CLI) CreateCard(listID, name string) {
+func (c *CLI) CreateCard(listID, name string) (cardID string) {
 	data := url.Values{}
 	data.Set("key", c.Config.Key)
 	data.Set("token", c.Config.Token)
 	data.Set("name", name)
 	data.Set("idList", listID)
-	_, err := http.Post(fmt.Sprintf("%s/cards?%s", base, data.Encode()), "application/json", nil)
+	resp, err := http.Post(fmt.Sprintf("%s/cards?%s", base, data.Encode()), "application/json", nil)
+	if err != nil {
+		log.Fatalf("failed to post request: %v", err)
+	}
+
+	type Card struct {
+		ID string `json:"id"`
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var card Card
+	if err := json.Unmarshal(body, &card); err != nil {
+		log.Fatalln(err)
+	}
+
+	return card.ID
+}
+
+func (c *CLI) AddLabel(cardID, labelID string) {
+	data := url.Values{}
+	data.Set("key", c.Config.Key)
+	data.Set("token", c.Config.Token)
+
+	values := url.Values{
+		"value": {labelID},
+	}
+
+	_, err := http.PostForm(fmt.Sprintf("%s/cards/%s/idLabels?%s", base, cardID, data.Encode()), values)
 	if err != nil {
 		log.Fatalf("failed to post request: %v", err)
 	}
@@ -187,9 +234,12 @@ func (c *CLI) CreateList(name, boardID string) (listID string) {
 }
 
 type Config struct {
-	Key     string
-	Token   string
-	BoardID string
+	Key      string
+	Token    string
+	BoardID  string
+	Tarefa   string
+	Saude    string
+	Trabalho string
 }
 
 func read() Config {
@@ -205,9 +255,24 @@ func read() Config {
 	if boardID == "" {
 		log.Fatal("Board ID can't be empty")
 	}
+	tarefaID := os.Getenv("TRELLO_TAREFA_LABEL")
+	if tarefaID == "" {
+		log.Fatal("Tarefa ID can't be empty")
+	}
+	trabalhoID := os.Getenv("TRELLO_TRABALHO_LABEL")
+	if trabalhoID == "" {
+		log.Fatal("Trabalho ID can't be empty")
+	}
+	saudeID := os.Getenv("TRELLO_SAUDE_LABEL")
+	if saudeID == "" {
+		log.Fatal("Saude ID can't be empty")
+	}
 	return Config{
-		Key:     key,
-		Token:   token,
-		BoardID: boardID,
+		Key:      key,
+		Token:    token,
+		BoardID:  boardID,
+		Tarefa:   tarefaID,
+		Trabalho: trabalhoID,
+		Saude:    saudeID,
 	}
 }
