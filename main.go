@@ -2,14 +2,19 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 
 	"github.com/larien/planner/cli"
 )
 
 func main() {
-
-	fmt.Println(usage)
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	cli := cli.New()
 	option := os.Args[1]
@@ -17,8 +22,9 @@ func main() {
 	case "boards":
 		cli.Boards()
 	case "lists":
-		id := os.Args[2]
-		cli.Lists(id)
+		cli.Lists(cli.Config.BoardID)
+	case "week":
+		cli.CreateWeek(cli.Config.BoardID)
 	default:
 		fmt.Fprint(os.Stderr, "unavailable option\n")
 	}
@@ -31,4 +37,5 @@ Usage: plan [options...]
 Options:
     boards - Lists all open boards
     lists <board_id> - Lists all cards in a board
+	week - Creates board for the entire week
 `
